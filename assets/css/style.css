@@ -1,0 +1,17 @@
+body {
+    background: #f7f7f9;
+}
+
+.card-img-top {
+    object-fit: cover;
+    height: 220px;
+}
+
+.qr-preview {
+    max-width: 200px;
+}
+
+#qr-reader video {
+    width: 100% !important;
+    border-radius: 0.5rem;
+}
