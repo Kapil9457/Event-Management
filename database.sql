@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS events (
     location VARCHAR(200) DEFAULT '',
     description TEXT,
     qr_token VARCHAR(64) NOT NULL UNIQUE,
+    pin_hash VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

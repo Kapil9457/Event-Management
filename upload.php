@@ -22,31 +22,51 @@ if ($user['role'] !== 'super_admin' && (int) $event['user_id'] !== (int) $user['
 }
 
 $notice = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['photo'])) {
-    $file = $_FILES['photo'];
-    if ($file['error'] === UPLOAD_ERR_OK) {
-        if ($file['size'] > MAX_UPLOAD_BYTES) {
-            $notice = 'File exceeds max size.';
-        } elseif (!in_array(mime_content_type($file['tmp_name']), ALLOWED_IMAGE_TYPES, true)) {
-            $notice = 'Invalid file type.';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? 'upload';
+    if ($action === 'delete_photo') {
+        $photoId = (int) ($_POST['photo_id'] ?? 0);
+        $stmt = db()->prepare('SELECT * FROM photos WHERE id = :id');
+        $stmt->execute(['id' => $photoId]);
+        $photo = $stmt->fetch();
+        if ($photo && ($user['role'] === 'super_admin' || (int) $photo['user_id'] === (int) $user['id'])) {
+            $deleteStmt = db()->prepare('DELETE FROM photos WHERE id = :id');
+            $deleteStmt->execute(['id' => $photoId]);
+            $filePath = UPLOAD_DIR . '/' . $photo['filename'];
+            if (is_file($filePath)) {
+                unlink($filePath);
+            }
+            $notice = 'Photo deleted.';
         } else {
-            $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+            $notice = 'Unable to delete photo.';
+        }
+    } elseif (isset($_FILES['photos'])) {
+        $files = $_FILES['photos'];
+        $uploadedCount = 0;
+        for ($i = 0; $i < count($files['name']); $i++) {
+            if ($files['error'][$i] !== UPLOAD_ERR_OK) {
+                continue;
+            }
+            if ($files['size'][$i] > MAX_UPLOAD_BYTES) {
+                continue;
+            }
+            if (!in_array(mime_content_type($files['tmp_name'][$i]), ALLOWED_IMAGE_TYPES, true)) {
+                continue;
+            }
+            $extension = pathinfo($files['name'][$i], PATHINFO_EXTENSION);
             $safeName = sprintf('%s_%s.%s', $eventId, uniqid('', true), $extension);
             $destination = UPLOAD_DIR . '/' . $safeName;
-            if (move_uploaded_file($file['tmp_name'], $destination)) {
+            if (move_uploaded_file($files['tmp_name'][$i], $destination)) {
                 $stmt = db()->prepare('INSERT INTO photos (event_id, user_id, filename) VALUES (:event_id, :user_id, :filename)');
                 $stmt->execute([
                     'event_id' => $eventId,
                     'user_id' => $user['id'],
                     'filename' => $safeName,
                 ]);
-                $notice = 'Photo uploaded successfully.';
-            } else {
-                $notice = 'Upload failed.';
+                $uploadedCount++;
             }
         }
-    } else {
-        $notice = 'Upload error.';
+        $notice = $uploadedCount > 0 ? sprintf('Uploaded %d photo(s).', $uploadedCount) : 'No valid photos uploaded.';
     }
 }
 
@@ -72,8 +92,8 @@ require_once __DIR__ . '/partials_header.php';
             <div class="card-body">
                 <form method="post" enctype="multipart/form-data">
                     <div class="mb-3">
-                        <label class="form-label">Select photo</label>
-                        <input type="file" name="photo" class="form-control" accept="image/*" required>
+                        <label class="form-label">Select photos</label>
+                        <input type="file" name="photos[]" class="form-control" accept="image/*" multiple required>
                     </div>
                     <button class="btn btn-primary w-100">Upload</button>
                 </form>
@@ -86,9 +106,16 @@ require_once __DIR__ . '/partials_header.php';
             <?php foreach ($photos as $photo): ?>
                 <div class="col-md-4">
                     <div class="card shadow-sm h-100">
-                        <img src="uploads/<?= htmlspecialchars($photo['filename']) ?>" class="card-img-top" alt="Event photo">
+                        <img src="uploads/<?= htmlspecialchars($photo['filename']) ?>" class="card-img-top" alt="Event photo" loading="lazy">
                         <div class="card-body">
-                            <p class="small text-muted mb-0">Uploaded <?= htmlspecialchars($photo['uploaded_at']) ?></p>
+                            <p class="small text-muted mb-2">Uploaded <?= htmlspecialchars($photo['uploaded_at']) ?></p>
+                            <?php if ($user['role'] === 'super_admin' || (int) $photo['user_id'] === (int) $user['id']): ?>
+                                <form method="post" onsubmit="return confirm('Delete this photo?');">
+                                    <input type="hidden" name="action" value="delete_photo">
+                                    <input type="hidden" name="photo_id" value="<?= $photo['id'] ?>">
+                                    <button class="btn btn-sm btn-outline-danger w-100">Delete</button>
+                                </form>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>

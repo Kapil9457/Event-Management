@@ -7,25 +7,43 @@ $user = current_user();
 
 $notice = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = trim($_POST['name'] ?? '');
-    $eventDate = $_POST['event_date'] ?? '';
-    $location = trim($_POST['location'] ?? '');
-    $description = trim($_POST['description'] ?? '');
-
-    if ($name && $eventDate) {
-        $token = bin2hex(random_bytes(12));
-        $stmt = db()->prepare('INSERT INTO events (user_id, name, event_date, location, description, qr_token) VALUES (:user_id, :name, :event_date, :location, :description, :qr_token)');
-        $stmt->execute([
-            'user_id' => $user['id'],
-            'name' => $name,
-            'event_date' => $eventDate,
-            'location' => $location,
-            'description' => $description,
-            'qr_token' => $token,
-        ]);
-        $notice = 'Event created successfully.';
+    $action = $_POST['action'] ?? 'create';
+    if ($action === 'delete') {
+        $eventId = (int) ($_POST['event_id'] ?? 0);
+        $stmt = db()->prepare('SELECT * FROM events WHERE id = :id');
+        $stmt->execute(['id' => $eventId]);
+        $event = $stmt->fetch();
+        if ($event && ($user['role'] === 'super_admin' || (int) $event['user_id'] === (int) $user['id'])) {
+            $deleteStmt = db()->prepare('DELETE FROM events WHERE id = :id');
+            $deleteStmt->execute(['id' => $eventId]);
+            $notice = 'Event deleted successfully.';
+        } else {
+            $notice = 'Unable to delete event.';
+        }
     } else {
-        $notice = 'Please provide an event name and date.';
+        $name = trim($_POST['name'] ?? '');
+        $eventDate = $_POST['event_date'] ?? '';
+        $location = trim($_POST['location'] ?? '');
+        $description = trim($_POST['description'] ?? '');
+        $pin = trim($_POST['pin'] ?? '');
+
+        if ($name && $eventDate && $pin) {
+            $token = bin2hex(random_bytes(12));
+            $pinHash = password_hash($pin, PASSWORD_DEFAULT);
+            $stmt = db()->prepare('INSERT INTO events (user_id, name, event_date, location, description, qr_token, pin_hash) VALUES (:user_id, :name, :event_date, :location, :description, :qr_token, :pin_hash)');
+            $stmt->execute([
+                'user_id' => $user['id'],
+                'name' => $name,
+                'event_date' => $eventDate,
+                'location' => $location,
+                'description' => $description,
+                'qr_token' => $token,
+                'pin_hash' => $pinHash,
+            ]);
+            $notice = 'Event created successfully.';
+        } else {
+            $notice = 'Please provide an event name, date, and PIN.';
+        }
     }
 }
 
@@ -64,6 +82,11 @@ require_once __DIR__ . '/partials_header.php';
                         <label class="form-label">Description</label>
                         <textarea name="description" class="form-control" rows="3"></textarea>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">Access PIN</label>
+                        <input type="password" name="pin" class="form-control" required>
+                        <div class="form-text">Guests must enter this PIN after scanning the QR code.</div>
+                    </div>
                     <button class="btn btn-primary w-100">Create Event</button>
                 </form>
             </div>
@@ -89,6 +112,13 @@ require_once __DIR__ . '/partials_header.php';
                                     <a class="btn btn-sm btn-outline-primary mb-2" href="upload.php?event_id=<?= $event['id'] ?>">Upload photos</a>
                                     <a class="btn btn-sm btn-outline-secondary mb-2" href="view_event.php?token=<?= $event['qr_token'] ?>">View gallery</a>
                                     <button class="btn btn-sm btn-dark" data-qr-token="<?= $event['qr_token'] ?>">Show QR</button>
+                                    <?php if ($user['role'] === 'super_admin' || (int) $event['user_id'] === (int) $user['id']): ?>
+                                        <form method="post" class="mt-2" onsubmit="return confirm('Delete this event and all photos?');">
+                                            <input type="hidden" name="action" value="delete">
+                                            <input type="hidden" name="event_id" value="<?= $event['id'] ?>">
+                                            <button class="btn btn-sm btn-outline-danger w-100">Delete</button>
+                                        </form>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                             <div class="qr-preview mt-3" id="qr-<?= $event['id'] ?>"></div>

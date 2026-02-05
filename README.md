@@ -7,6 +7,7 @@ A wedding photos event management system built with PHP, MySQL, and Bootstrap 5.
 - Users can create events and upload/manage wedding photos.
 - QR code generation for every event, with scanning support for guests.
 - Encrypted cookies to remember last access securely.
+- PIN-protected galleries with localStorage helpers for faster repeat access.
 
 ## Setup
 1. Create a MySQL database and import the schema:
@@ -25,3 +26,4 @@ A wedding photos event management system built with PHP, MySQL, and Bootstrap 5.
 ## Notes
 - Uploaded images are stored in `/uploads`.
 - Ensure the `uploads` directory is writable by your web server.
+- Event PINs are required for guest access after scanning a QR code.

@@ -24,6 +24,9 @@ $user = current_user();
                 <?php if ($user): ?>
                     <li class="nav-item"><a class="nav-link" href="dashboard.php">Dashboard</a></li>
                     <li class="nav-item"><a class="nav-link" href="events.php">Events</a></li>
+                    <?php if ($user['role'] === 'super_admin'): ?>
+                        <li class="nav-item"><a class="nav-link" href="users.php">Users</a></li>
+                    <?php endif; ?>
                     <li class="nav-item"><a class="nav-link" href="scan.php">Scan QR</a></li>
                     <li class="nav-item"><a class="nav-link" href="logout.php">Logout</a></li>
                 <?php else: ?>

@@ -41,4 +41,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    const pinForm = document.getElementById('pin-form');
+    if (pinForm) {
+        const token = pinForm.getAttribute('data-event-token');
+        const hasError = pinForm.getAttribute('data-pin-error') === '1';
+        const storedPin = localStorage.getItem(`event_pin_${token}`);
+        const pinInput = pinForm.querySelector('input[name=\"pin\"]');
+        if (!hasError && storedPin && pinInput) {
+            pinInput.value = storedPin;
+            pinForm.submit();
+        }
+        pinForm.addEventListener('submit', () => {
+            if (pinInput && pinInput.value) {
+                localStorage.setItem(`event_pin_${token}`, pinInput.value);
+            }
+        });
+    }
+
+    const gallery = document.querySelector('.premium-gallery');
+    if (gallery) {
+        const token = gallery.getAttribute('data-event-token');
+        if (token) {
+            localStorage.setItem('last_event_token', token);
+        }
+    }
 });
